@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./App.scss";
 import api from "../services/api";
 import Searchbar from "./searchbar/Searchbar";
@@ -8,139 +8,128 @@ import Loader from "./loader/Loader";
 import Modal from "./modal/Modal";
 import OnError from "./onError/OnError";
 
-class App extends Component {
-  state = {
-    images: [],
-    isLoading: false,
-    error: null,
-    query: "",
-    actualPage: 1,
-    lastPage: 1,
-    modalIsOpen: false,
-  };
-
-  modalInfo = {
+const App = () => {
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [query, setQuery] = useState("");
+  const [actualPage, setActualPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [modalInfo, setModalInfo] = useState({
     modalPhotoURL: null,
     modalAlt: null,
-  };
+  });
 
-  updateQuery = ({ query }) => {
-    this.setState({ query: query });
-  };
+  const updateQuery = useCallback(({ query }) => {
+    setQuery(query);
+  }, []);
 
-  mapNewImages = (fetchedImages) => {
-    const mapedImages = fetchedImages.map((image) => ({
+  const mapNewImages = (fetchedImages) => {
+    return fetchedImages.map((image) => ({
       id: image.id,
       small: image.webformatURL,
       large: image.largeImageURL,
       alt: image.tags,
     }));
-    return mapedImages;
   };
 
-  goToNextPage = () => {
-    let { actualPage } = this.state;
-    actualPage++;
-    this.setState({ actualPage: actualPage });
+  const goToNextPage = () => {
+    setActualPage((prevPage) => prevPage + 1);
   };
 
-  openModal = (e) => {
-    this.setState({
-      modalIsOpen: true,
-    });
-
-    this.modalInfo = {
+  const openModal = (e) => {
+    setModalInfo({
       modalPhotoURL: e.target.dataset["source"],
       modalAlt: e.target.alt,
-    };
+    });
+    setModalIsOpen(true);
   };
 
-  closeModal = (e) => {
+  const closeModal = (e) => {
     if (e.target.nodeName !== "IMG") {
-      this.setState({
-        modalIsOpen: false,
-      });
+      setModalIsOpen(false);
     }
   };
 
-  closeModalwithButton = (e) => {
+  const closeModalWithButton = useCallback((e) => {
     if (e.key === "Escape") {
-      this.setState({
-        modalIsOpen: false,
-      });
+      setModalIsOpen(false);
     }
-  };
+  }, []);
 
-  async componentDidUpdate(prevProps, prevState) {
-    if (prevState.query !== this.state.query) {
-      const { query } = this.state;
-      this.setState({ isLoading: true });
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
       try {
         const fetchedData = await api.fetchImageWithQuery(query, 1);
-        const mapedImages = this.mapNewImages(fetchedData.images);
+        const mapedImages = mapNewImages(fetchedData.images);
         const lastPage = Math.ceil(fetchedData.total / 12);
-        this.setState({
-          images: mapedImages,
-          actualPage: 1,
-          lastPage: lastPage,
-        });
+        setImages(mapedImages);
+        setActualPage(1);
+        setLastPage(lastPage);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error) {
-        this.setState({ error });
+        setError(error);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
-    }
+    };
 
-    if (
-      prevState.actualPage !== this.state.actualPage &&
-      prevState.query === this.state.query &&
-      this.state.actualPage !== 1
-    ) {
-      const { query, actualPage, images } = this.state;
-      this.setState({ isLoading: true });
+    if (query) {
+      fetchData();
+    }
+  }, [query]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
       try {
         const fetchedData = await api.fetchImageWithQuery(query, actualPage);
-        const mapedImages = await this.mapNewImages(fetchedData.images);
-        const concatImages = images.concat(mapedImages);
-        this.setState({ images: concatImages });
+        const mapedImages = mapNewImages(fetchedData.images);
+        setImages((prevImages) => [...prevImages, ...mapedImages]);
       } catch (error) {
-        this.setState({ error });
+        setError(error);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
+    };
+
+    if (actualPage > 1) {
+      fetchData();
     }
-  }
+  }, [actualPage, query]);
 
-  render() {
-    const { images, actualPage, lastPage, isLoading, modalIsOpen, query } =
-      this.state;
-    const { modalPhotoURL, modalAlt } = this.modalInfo;
+  useEffect(() => {
+    window.addEventListener("keydown", closeModalWithButton);
+    return () => {
+      window.removeEventListener("keydown", closeModalWithButton);
+    };
+  }, [closeModalWithButton]);
 
-    return (
-      <>
-        {modalIsOpen && (
-          <Modal
-            imgSrc={modalPhotoURL}
-            imgAlt={modalAlt}
-            closeHandler={this.closeModal}
-            escHandler={this.closeModalwithButton}></Modal>
-        )}
-        <Searchbar onSubmit={this.updateQuery} />
-        <ImageGallery
-          images={images}
-          page={actualPage}
-          clickHanlder={this.openModal}></ImageGallery>
-        {actualPage !== lastPage && images.length > 0 && !isLoading ? (
-          <Button onClick={this.goToNextPage} />
-        ) : null}
-        {isLoading && <Loader />}
-        {images.length === 0 && query && !isLoading && (
-          <OnError>Nothing found! Try again</OnError>
-        )}
-      </>
-    );
-  }
-}
+  return (
+    <>
+      {modalIsOpen && (
+        <Modal
+          imgSrc={modalInfo.modalPhotoURL}
+          imgAlt={modalInfo.modalAlt}
+          closeHandler={closeModal}
+          escHandler={closeModalWithButton}></Modal>
+      )}
+      <Searchbar onSubmit={updateQuery} />
+      <ImageGallery
+        images={images}
+        page={actualPage}
+        clickHandler={openModal}></ImageGallery>
+      {actualPage !== lastPage && images.length > 0 && !isLoading ? (
+        <Button onClick={goToNextPage} />
+      ) : null}
+      {isLoading && <Loader />}
+      {images.length === 0 && query && !isLoading && (
+        <OnError>Nothing found! Try again</OnError>
+      )}
+    </>
+  );
+};
 
 export default App;

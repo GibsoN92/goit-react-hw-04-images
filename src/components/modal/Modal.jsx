@@ -1,27 +1,24 @@
-import React, { Component } from "react";
+import React, { useEffect } from "react";
 import css from "./Modal.module.scss";
 import PropTypes from "prop-types";
 
-class Modal extends Component {
-  componentDidMount() {
-    document.addEventListener("keydown", this.props.escHandler);
-  }
+const Modal = ({ imgSrc, imgAlt, closeHandler, escHandler }) => {
+  useEffect(() => {
+    document.addEventListener("keydown", escHandler);
 
-  componentWillUnmount() {
-    document.removeEventListener("keydown", this.props.escHandler);
-  }
+    return () => {
+      document.removeEventListener("keydown", escHandler);
+    };
+  }, [escHandler]);
 
-  render() {
-    const { imgSrc, imgAlt, closeHandler } = this.props;
-    return (
-      <div className={css["overlay"]} onClick={closeHandler}>
-        <div className={css["modal"]}>
-          <img src={imgSrc} alt={imgAlt} />
-        </div>
+  return (
+    <div className={css["overlay"]} onClick={closeHandler}>
+      <div className={css["modal"]}>
+        <img src={imgSrc} alt={imgAlt} />
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 
 Modal.propTypes = {
   imgSrc: PropTypes.string.isRequired,

@@ -114,13 +114,15 @@ const App = () => {
           imgSrc={modalInfo.modalPhotoURL}
           imgAlt={modalInfo.modalAlt}
           closeHandler={closeModal}
-          escHandler={closeModalWithButton}></Modal>
+          escHandler={closeModalWithButton}
+        />
       )}
       <Searchbar onSubmit={updateQuery} />
       <ImageGallery
         images={images}
         page={actualPage}
-        clickHandler={openModal}></ImageGallery>
+        clickHandler={openModal}
+      />
       {actualPage !== lastPage && images.length > 0 && !isLoading ? (
         <Button onClick={goToNextPage} />
       ) : null}
